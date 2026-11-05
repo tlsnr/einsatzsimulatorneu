@@ -204,7 +204,36 @@ Dienst beenden
   <div id="leitstellenStatus">
     Leitstelle ist einsatzbereit.
   </div>
+<h3>🚒 Neuen Einsatz anlegen</h3>
 
+<label for="einsatzStichwort">
+  Einsatzstichwort (AAO)
+</label>
+
+<input
+  id="einsatzStichwort"
+  type="text"
+  placeholder="z. B. F3_Zimmer"
+>
+
+<label for="einsatzWache">
+  Zuständige Ortsfeuerwehr
+</label>
+
+<select id="einsatzWache">
+  <option value="Feuerwehr Lingen">Feuerwehr Lingen</option>
+  <option value="Feuerwehr Altenlingen">Feuerwehr Altenlingen</option>
+  <option value="Feuerwehr Baccum">Feuerwehr Baccum</option>
+  <option value="Feuerwehr Bramsche">Feuerwehr Bramsche</option>
+  <option value="Feuerwehr Brögbern">Feuerwehr Brögbern</option>
+  <option value="Feuerwehr Holthausen">Feuerwehr Holthausen</option>
+</select>
+
+<button id="aaoVorschlagen" type="button">
+  Fahrzeuge nach AAO vorschlagen
+</button>
+
+<div id="aaoVorschlag"></div>
   <h3>Aktuelle Einsätze</h3>
 
   <div id="leitstellenEinsaetze">
@@ -248,7 +277,178 @@ const wachen = [
 ];
 
 let aktuellerSpieler = null;
+// AAO-FAHRZEUGVORSCHLÄGE
 
+const fahrzeugKatalog = [
+  "HLF 20",
+  "RW/K",
+  "DLAK 23/12",
+  "TLF 24/50",
+  "ELW",
+  "GW-L1",
+  "TroTLF 16",
+  "GW/G",
+  "GW/L2",
+  "MTF"
+];
+
+document.getElementById("aaoVorschlagen").addEventListener("click", function () {
+
+  const stichwort = document.getElementById("einsatzStichwort").value.trim().toUpperCase();
+  const wache = document.getElementById("einsatzWache").value;
+  const ausgabe = document.getElementById("aaoVorschlag");
+
+  if (!stichwort) {
+    ausgabe.innerHTML = "Bitte zuerst ein Einsatzstichwort eingeben.";
+    return;
+  }
+
+  let vorgeschlagen = [];
+
+  
+// AAO NUR FÜR ORTSFEUERWEHR LINGEN
+if (wache === "Feuerwehr Lingen") {
+
+  const aaoLingenRegeln = [
+
+    // FEUER
+    ["F0", ["HLF 20"]],
+    ["F1", ["HLF 20"]],
+    ["F2", ["HLF 20", "DLAK 23/12", "TLF 24/50"]],
+
+    // F3 ZIMMER UND GEBÄUDE
+    ["F3_DACHSTUHL", ["HLF 20", "DLAK 23/12", "TLF 24/50", "RW/K", "ELW"]],
+    ["F3_FLAECHE_GROSS", ["HLF 20", "TLF 24/50", "TroTLF 16", "ELW"]],
+    ["F3_E_ANLAGE", ["HLF 20", "TLF 24/50", "TroTLF 16", "ELW"]],
+    ["F3_FAHRZEUG", ["HLF 20", "TLF 24/50", "TroTLF 16", "ELW"]],
+    ["F3_ZIMMER", ["HLF 20", "RW/K", "DLAK 23/12", "TLF 24/50", "ELW"]],
+    ["F3", ["HLF 20", "DLAK 23/12", "TLF 24/50", "ELW"]],
+
+    // F3X WASSER
+    ["F3X_SCHIFF", ["HLF 20", "DLAK 23/12", "TLF 24/50", "RW/K", "ELW", "TroTLF 16", "GW/G", "GW/L2"]],
+    ["F3Y_SCHIFF", ["HLF 20", "DLAK 23/12", "TLF 24/50", "RW/K", "ELW", "TroTLF 16", "GW/G", "GW/L2"]],
+    ["F3_SCHIFF", ["HLF 20", "DLAK 23/12", "TLF 24/50", "RW/K", "ELW", "TroTLF 16", "GW/G", "GW/L2"]],
+
+    // F3X
+    ["F3X", ["HLF 20", "TLF 24/50", "DLAK 23/12", "ELW", "TroTLF 16", "GW/G", "GW/L2"]],
+
+    // F3Y AUSSEN
+    ["F3Y_FAHRZEUG", ["HLF 20", "DLAK 23/12", "TLF 24/50", "ELW"]],
+    ["F3Y_LUFTFAHRZEUG", ["HLF 20", "DLAK 23/12", "TLF 24/50", "ELW"]],
+    ["F3Y_SONST", ["HLF 20", "DLAK 23/12", "TLF 24/50", "ELW"]],
+
+    // F3Y HÖHE
+    ["F3Y", ["HLF 20", "DLAK 23/12", "TLF 24/50", "ELW", "TroTLF 16"]],
+
+    // F3 BAHN
+    ["F3_BAHN", ["HLF 20", "TLF 24/50", "ELW", "RW/K", "GW/L2"]],
+    ["F3Y_BAHN", ["HLF 20", "TLF 24/50", "ELW", "RW/K", "GW/L2"]],
+
+    // F4
+    ["F4X", ["HLF 20", "TLF 24/50", "DLAK 23/12", "ELW", "TroTLF 16", "GW/G", "GW/L2", "MTF"]],
+    ["F4Y", ["HLF 20", "DLAK 23/12", "TLF 24/50", "ELW", "TroTLF 16", "GW/L2", "MTF"]],
+    ["F4", ["HLF 20", "DLAK 23/12", "TLF 24/50", "ELW", "TroTLF 16", "GW/L2", "MTF"]],
+    ["F5", fahrzeugKatalog],
+
+    // H0
+    ["H0", ["HLF 20"]],
+
+    // H1
+    ["H1Y_DL", ["RW/K", "DLAK 23/12"]],
+    ["H1Y", ["RW/K", "DLAK 23/12"]],
+    ["H1X_WASSER", ["GW/L2"]],
+    ["H1X", ["HLF 20", "GW/L2"]],
+    ["H1_BAHN", ["HLF 20"]],
+    ["H1", ["HLF 20"]],
+
+    // H2
+    ["H2Y_HOEHE", ["HLF 20", "RW/K", "DLAK 23/12", "ELW"]],
+    ["H2Y_BAHN", ["HLF 20", "RW/K", "GW/L2", "DLAK 23/12", "ELW"]],
+    ["H2Y_WASSER", ["HLF 20", "RW/K", "DLAK 23/12", "ELW"]],
+    ["H2Y", ["HLF 20", "RW/K", "DLAK 23/12", "ELW"]],
+    ["H2X_WASSER", ["HLF 20", "RW/K", "TroTLF 16", "ELW", "GW/G", "GW/L2"]],
+    ["H2X", ["HLF 20", "RW/K", "TroTLF 16", "ELW", "GW/G", "GW/L2"]],
+    ["H2_WASSER", ["HLF 20", "RW/K"]],
+    ["H2_BAHN", ["HLF 20", "GW/L2"]],
+    ["H2", ["HLF 20", "RW/K", "DLAK 23/12"]],
+
+    // H3
+    ["H3X_BAHN", ["HLF 20", "RW/K", "DLAK 23/12", "TLF 24/50", "TroTLF 16", "GW/G", "GW/L2", "MTF", "ELW"]],
+    ["H3X", ["HLF 20", "RW/K", "DLAK 23/12", "TLF 24/50", "TroTLF 16", "GW/G", "GW/L2", "MTF", "ELW"]],
+    ["H3Y", ["HLF 20", "RW/K", "DLAK 23/12", "TLF 24/50", "ELW"]],
+    ["H3", ["HLF 20", "RW/K", "DLAK 23/12", "ELW"]],
+
+    // MANV
+    ["MANV 7", ["HLF 20", "RW/K", "DLAK 23/12", "TLF 24/50", "ELW"]],
+    ["MANV_7", ["HLF 20", "RW/K", "DLAK 23/12", "TLF 24/50", "ELW"]],
+    ["MANV 15", fahrzeugKatalog],
+    ["MANV_15", fahrzeugKatalog],
+    ["MANV 25", fahrzeugKatalog],
+    ["MANV_25", fahrzeugKatalog],
+    ["MANV >25", fahrzeugKatalog],
+
+    // ANFORDERUNGEN
+    ["ANFO_HLF", ["HLF 20"]],
+    ["ANFO_TLF", ["TLF 24/50"]],
+    ["ANFO_TROTLF", ["TroTLF 16"]],
+    ["ANFO_GWG", ["GW/G", "MTF"]],
+    ["ANFO_DL", ["DLAK 23/12"]],
+    ["ANFO_RW", ["RW/K"]],
+    ["ANFO_GW-L", ["GW-L1"]],
+    ["ANFO_AGT", ["TroTLF 16"]],
+    ["ANFO_GEFAHRGUTGRUPPE", ["GW/G", "GW/L2", "TroTLF 16", "ELW"]],
+    ["ANFO_SONDERLÖSCHMITTEL", ["TroTLF 16", "TLF 24/50"]],
+    ["ANFO_BOOT", ["RW/K", "MTF"]],
+    ["ANFO_IUK", ["ELW", "MTF"]],
+    ["ANFO_ELW", ["ELW", "MTF"]],
+    ["ANFO_NACHB_HILFE", ["TroTLF 16", "DLAK 23/12"]]
+  ];
+
+  const passendeRegel = aaoLingenRegeln
+    .slice()
+    .sort((a, b) => b[0].length - a[0].length)
+    .find(regel => stichwort.startsWith(regel[0]));
+
+  if (passendeRegel) {
+    vorgeschlagen = [...passendeRegel[1]];
+  }
+
+  // GW-L1 zusätzlich bei allen F3-Stichwörtern
+  // ausschließlich Feuerwehr Lingen
+  if (stichwort.startsWith("F3")) {
+    if (!vorgeschlagen.includes("GW-L1")) {
+      vorgeschlagen.push("GW-L1");
+    }
+  }
+
+}
+
+
+  ausgabe.innerHTML = `
+    <h3>Fahrzeugvorschläge für ${wache}</h3>
+    <p>Bitte gewünschte Fahrzeuge auswählen:</p>
+    <div id="fahrzeugAuswahl"></div>
+  `;
+
+  const liste = document.getElementById("fahrzeugAuswahl");
+
+  fahrzeugKatalog.forEach(fahrzeug => {
+
+    const aktiviert = vorgeschlagen.includes(fahrzeug);
+
+    liste.innerHTML += `
+      <label style="display:block; margin:8px 0;">
+        <input
+          type="checkbox"
+          value="${fahrzeug}"
+          ${aktiviert ? "checked" : ""}
+        >
+        ${fahrzeug}
+      </label>
+    `;
+  });
+
+});
 // WACHEN ANZEIGEN
 
 function anzeigen() {
