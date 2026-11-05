@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EinsatzSim Lingen</title>
+
+<style>
+* {
+box-sizing: border-box;
+}
+
+body {
+margin: 0;
+font-family: Arial, sans-serif;
+background: #101827;
+color: white;
+}
+
+header {
+background: #1c293c;
+padding: 25px;
+text-align: center;
+border-bottom: 4px solid #d32f2f;
+}
+
+header h1 {
+margin: 0 0 10px;
+}
+
+main {
+max-width: 850px;
+margin: 30px auto;
+padding: 20px;
+}
+
+.panel {
+background: #1c293c;
+border-radius: 12px;
+padding: 25px;
+margin-bottom: 20px;
+}
+
+label {
+display: block;
+margin: 18px 0 8px;
+font-weight: bold;
+}
+
+input, select, button {
+width: 100%;
+padding: 13px;
+font-size: 16px;
+border-radius: 7px;
+}
+
+input, select {
+border: 1px solid #66758c;
+background: white;
+color: #172033;
+}
+
+button {
+border: none;
+background: #c62828;
+color: white;
+cursor: pointer;
+margin-top: 22px;
+font-weight: bold;
+}
+
+button:hover {
+background: #e53935;
+}
+
+.hidden {
+display: none;
+}
+
+.wache {
+display: flex;
+justify-content: space-between;
+gap: 12px;
+padding: 13px 0;
+border-bottom: 1px solid #405068;
+}
+
+.status {
+color: #8de0a5;
+white-space: nowrap;
+}
+
+.hinweis {
+color: #b7c3d4;
+font-size: 13px;
+margin-top: 18px;
+}
+
+.pflicht {
+color: #ff7777;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>🚨 EinsatzSim Lingen</h1>
+<p>Gemeinsame Einsatzsimulation für Lingen und Umgebung</p>
+</header>
+
+<main>
+
+<!-- DIENSTANMELDUNG -->
+
+<section id="anmeldung" class="panel">
+<h2>Dienstanmeldung</h2>
+
+<p>
+Melde dich mit deinem Namen an und
+wähle deine gewünschte Organisation.
+</p>
+
+<form id="anmeldeFormular">
+
+<label for="echterName">
+Vor- und Nachname
+<span class="pflicht">*</span>
+</label>
+
+<input
+id="echterName"
+type="text"
+placeholder="Max Mustermann"
+maxlength="60"
+autocomplete="name"
+required
+>
+
+<label for="spielername">
+Spielername (freiwillig)
+</label>
+
+<input
+id="spielername"
+type="text"
+placeholder="z. B. Florian112"
+maxlength="30"
+>
+
+<label for="organisation">
+Organisation / Wache
+<span class="pflicht">*</span>
+</label>
+
+<select id="organisation" required></select>
+
+<button type="submit">
+🚒 Dienst beginnen
+</button>
+
+</form>
+
+<p class="hinweis">
+* Pflichtfeld
+</p>
+
+<p class="hinweis">
+Privates, inoffizielles Simulationsprojekt.
+Keine Verbindung zu echten Behörden oder
+Einsatzorganisationen.
+</p>
+</section>
+
+<!-- AKTIVER DIENST -->
+
+<section id="dienst" class="panel hidden">
+
+<h2>Willkommen im Dienst!</h2>
+
+<p id="spielerInfo"></p>
+
+<p class="status">
+● Dienst aktiv
+</p>
+
+<button id="dienstEnde" type="button">
+Dienst beenden
+</button>
+
+</section>
+
+<!-- WACHENÜBERSICHT -->
+
+<section class="panel">
+
+<h2>Wachenübersicht</h2>
+
+<p class="hinweis">
+Aktuelle Belegung dieser Testansicht.
+</p>
+
+<div id="wachenListe"></div>
+
+</section>
+
+</main>
+
+<script>
+
+// ALLE ORGANISATIONEN
+
+const wachen = [
+{ name: "Leitstelle Ems-Vechte", max: 1 },
+{ name: "Feuerwehr Lingen", max: 2 },
+{ name: "Feuerwehr Altenlingen", max: 2 },
+{ name: "Feuerwehr Baccum", max: 2 },
+{ name: "Feuerwehr Bramsche", max: 2 },
+{ name: "Feuerwehr Brögbern", max: 2 },
+{ name: "Feuerwehr Holthausen", max: 2 },
+{ name: "THW OV Lingen", max: 2 },
+{ name: "Rettungswache Lingen", max: 2 },
+{ name: "Polizei Lingen", max: 2 },
+{ name: "DLRG Lingen", max: 2 }
+];
+
+let aktuellerSpieler = null;
+
+// WACHEN ANZEIGEN
+
+function anzeigen() {
+
+const auswahl =
+document.getElementById("organisation");
+
+const liste =
+document.getElementById("wachenListe");
+
+auswahl.innerHTML = "";
+liste.innerHTML = "";
+
+wachen.forEach(wache => {
+
+const belegt =
+aktuellerSpieler &&
+aktuellerSpieler.wache === wache.name
+? 1
+: 0;
+
+const option =
+document.createElement("option");
+
+option.value = wache.name;
+
+option.textContent =
+wache.name +
+" (" + belegt + "/" + wache.max + ")";
+
+option.disabled = belegt >= wache.max;
+
+auswahl.appendChild(option);
+
+const zeile =
+document.createElement("div");
+
+zeile.className = "wache";
+
+const titel =
+document.createElement("span");
+
+titel.textContent = wache.name;
+
+const status =
+document.createElement("span");
+
+status.textContent =
+belegt + " / " + wache.max;
+
+status.className = "status";
+
+zeile.append(titel, status);
+
+liste.appendChild(zeile);
+
+});
+
+}
+
+// DIENST BEGINNEN
+
+function dienstStarten(event) {
+
+event.preventDefault();
+
+const echterName =
+document.getElementById("echterName")
+.value.trim();
+
+const spielername =
+document.getElementById("spielername")
+.value.trim();
+
+const wache =
+document.getElementById("organisation")
+.value;
+
+if (echterName.split(/\s+/).length < 2) {
+
+alert(
+"Bitte gib deinen Vor- und Nachnamen ein."
+);
+
+return;
+}
+
+if (!wache) {
+
+alert(
+"Bitte wähle eine Organisation aus."
+);
+
+return;
+}
+
+aktuellerSpieler = {
+name: echterName,
+spielername: spielername || echterName,
+wache: wache
+};
+
+document.getElementById("anmeldung")
+.classList.add("hidden");
+
+document.getElementById("dienst")
+.classList.remove("hidden");
+
+document.getElementById("spielerInfo")
+.textContent =
+aktuellerSpieler.spielername +
+" (" + echterName + ") – " + wache;
+
+anzeigen();
+
+}
+
+// DIENST BEENDEN
+
+function dienstBeenden() {
+
+aktuellerSpieler = null;
+
+document.getElementById("dienst")
+.classList.add("hidden");
+
+document.getElementById("anmeldung")
+.classList.remove("hidden");
+
+anzeigen();
+
+}
+
+// BUTTONS VERBINDEN
+
+document.getElementById("anmeldeFormular")
+.addEventListener("submit", dienstStarten);
+
+document.getElementById("dienstEnde")
+.addEventListener("click", dienstBeenden);
+
+// START
+
+anzeigen();
+
+</script>
+
+</body>
+</html>
