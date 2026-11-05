@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EinsatzSim Lingen</title>
+<link rel="manifest" href="manifest.json"><meta name="theme-color" content="#c62828"><link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#101827;color:#fff}
+header{background:#1c293c;padding:16px;text-align:center;border-bottom:4px solid #d32f2f}header h1{margin:0}
+main{max-width:1000px;margin:16px auto;padding:0 12px}.panel{background:#1c293c;border-radius:12px;padding:18px;margin-bottom:16px}
+label{display:block;margin:12px 0 6px;font-weight:bold}input,select,button,textarea{width:100%;padding:11px;font-size:16px;border-radius:7px}
+input,select,textarea{border:1px solid #66758c;background:#fff;color:#172033}input[type=checkbox]{width:auto}
+button{border:0;background:#c62828;color:#fff;cursor:pointer;margin-top:12px;font-weight:bold}button:hover{background:#e53935}button.sek{background:#405068}
+.hidden{display:none}.hinweis{color:#b7c3d4;font-size:13px}.ok{color:#8de0a5}.err{color:#ff7777}
+.row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid #405068;align-items:center}
+.fz{display:block;margin:4px 0;font-weight:normal}.sb{display:inline-block;width:auto;padding:7px 11px;margin:3px 3px 0 0;font-size:14px}
+.sb.aktiv{outline:3px solid #fff}.einsatz{border:1px solid #66758c;border-radius:8px;padding:10px;margin:8px 0}
+#karte{height:380px;border-radius:10px;margin-top:10px}h3{margin:18px 0 6px}
+</style></head><body>
+<header><h1>🚨 EinsatzSim Lingen</h1><div class="hinweis">Privates, inoffizielles Simulationsprojekt – keine Verbindung zu echten Behörden.</div></header>
+<main>
+<div id="fehler" class="panel err hidden"></div>
+
+<section id="zugang" class="panel hidden"><h2>🔒 Zugangscode</h2>
+<p class="hinweis">Dieses Spiel ist nicht öffentlich. Den Code bekommst du vom Spielleiter.</p>
+<form id="codeForm"><label>Zugangscode</label><input id="codeInput" type="password" autocomplete="off" required>
+<button type="submit">Freischalten</button></form><p id="codeFehler" class="err"></p></section>
+
+<section id="anmeldung" class="panel hidden"><h2>Dienstanmeldung</h2>
+<form id="form">
+<label>Vor- und Nachname *</label><input id="echterName" maxlength="60" required placeholder="Max Mustermann">
+<label>Spielername (freiwillig)</label><input id="spielername" maxlength="30">
+<label>Organisation / Wache *</label><select id="organisation" required></select>
+<button type="submit">🚒 Dienst beginnen</button></form>
+<p id="verbindung" class="hinweis">Verbinde mit Server …</p></section>
+
+<section id="dienst" class="panel hidden"><div class="row"><b id="spielerInfo"></b><span class="ok">● Dienst aktiv</span></div>
+<button id="dienstEnde" class="sek">Dienst beenden</button></section>
+
+<section id="leitstelle" class="panel hidden"><h2>🚨 Leitstelle Ems-Vechte</h2>
+<h3>Neuen Einsatz anlegen</h3>
+<label>Einsatzstichwort (z. B. F3_ZIMMER)</label><input id="stichwort" placeholder="F3_ZIMMER">
+<label>Zuständige Wache (AAO-Vorschlag gibt es nur für Feuerwehr Lingen)</label><select id="einsatzWache"></select>
+<label>Einsatzort (Text) – oder direkt in der Karte klicken</label><input id="ortText" placeholder="Straße, Ort">
+<button type="button" id="ortSuchen" class="sek">📍 Adresse auf Karte suchen</button>
+<p id="ortInfo" class="hinweis">Noch kein Punkt auf der Karte gesetzt.</p>
+<button type="button" id="aaoBtn" class="sek">Fahrzeuge nach AAO vorschlagen</button>
+<p id="aaoHinweis" class="hinweis"></p>
+<h3>Fahrzeuge für Alarmierung wählen</h3><div id="fzAuswahl"></div>
+<button type="button" id="alarmBtn">🔔 ALARMIEREN</button>
+<h3>Einsätze</h3><div id="lstEinsaetze"></div></section>
+
+<section id="wache" class="panel hidden"><h2 id="wacheTitel"></h2>
+<h3>Eigene Fahrzeuge</h3><div id="eigeneFz"></div>
+<h3>Alarmierungen</h3><div id="eigeneEinsaetze" class="hinweis">Keine.</div></section>
+
+<section id="kartePanel" class="panel hidden"><h3>Karte</h3>
+<div id="karte"></div><p class="hinweis">Kartendaten © OpenStreetMap-Mitwirkende. Wachenmarker per OSM-Adresssuche ermittelt, <b>nicht verifiziert</b>.</p></section>
+
+<section class="panel"><h2>Wachenübersicht (live)</h2><div id="wachenListe"></div></section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="config.js"></script>
+<script>
+// ===== STAMMDATEN (1:1 aus der Originaldatei) =====
+const LS="Leitstelle Ems-Vechte";
+const ORG=[[LS,1],["Feuerwehr Lingen",2],["Feuerwehr Altenlingen",2],["Feuerwehr Baccum",2],["Feuerwehr Bramsche",2],["Feuerwehr Brögbern",2],["Feuerwehr Holthausen",2],["THW OV Lingen",2],["Rettungswache Lingen",2],["Polizei Lingen",2],["DLRG Lingen",2]];
+const OF=ORG.filter(o=>o[0].startsWith("Feuerwehr")).map(o=>o[0]);
+const ADR={"Feuerwehr Lingen":"Bäumerstraße 9, 49808 Lingen","Feuerwehr Altenlingen":"Forstweg 3, 49808 Lingen","Feuerwehr Baccum":"Antoniusstraße 40a, 49811 Lingen","Feuerwehr Bramsche":"Wolkenkamp 2-4, 49811 Lingen","Feuerwehr Brögbern":"Duisenburger Straße 35, 49811 Lingen","Feuerwehr Holthausen":"Raffineriestraße 30, 49808 Lingen","THW OV Lingen":"Feuerdornstraße 3, 49808 Lingen","Rettungswache Lingen":"Jahnstraße 4, 49808 Lingen","Polizei Lingen":"Wilhelm-Berning-Straße 8, 49809 Lingen","DLRG Lingen":"Werkstättenstraße 2, 49808 Lingen",[LS]:"Ordeniederung 1, 49716 Meppen"};
+const FZ_TXT=`Feuerwehr Lingen;ELW 1;Florian Emsland 23-11-11
+Feuerwehr Lingen;RW-K;Florian Emsland 23-52-11
+Feuerwehr Lingen;DL(A)K;Florian Emsland 23-30-11
+Feuerwehr Lingen;TLF 24/50;Florian Emsland 23-25-11
+Feuerwehr Lingen;HLF 20;Florian Emsland 23-48-11
+Feuerwehr Lingen;MTW;Florian Emsland 23-17-11
+Feuerwehr Lingen;GW-L1;Florian Emsland 23-64-11
+Feuerwehr Lingen;TroTLF 16;Florian Emsland 23-29-11
+Feuerwehr Lingen;MZB Boot;Florian Emsland 23-77-11
+Feuerwehr Lingen;GW-L FTZ;Florian Emsland 80-64-31
+Feuerwehr Lingen;MZF FTZ;Florian Emsland 80-19-31
+Feuerwehr Altenlingen;MZF;Florian Emsland 23-19-21
+Feuerwehr Altenlingen;TLF;Florian Emsland 23-21-21
+Feuerwehr Altenlingen;LF;Florian Emsland 23-45-21
+Feuerwehr Baccum;MZF;Florian Emsland 23-19-31
+Feuerwehr Baccum;TLF;Florian Emsland 23-21-31
+Feuerwehr Baccum;LF;Florian Emsland 23-45-31
+Feuerwehr Bramsche;MZF;Florian Emsland 23-19-41
+Feuerwehr Bramsche;GW-G;Florian Emsland 23-73-41
+Feuerwehr Bramsche;GW-L2;Florian Emsland 23-68-41
+Feuerwehr Bramsche;LF;Florian Emsland 23-47-41
+Feuerwehr Brögbern;LF 10;Florian Emsland 23-45-51
+Feuerwehr Brögbern;TLF 3000;Florian Emsland 23-21-51
+Feuerwehr Brögbern;MZF;Florian Emsland 23-19-51
+Feuerwehr Holthausen;MZF;Florian Emsland 23-19-61
+Feuerwehr Holthausen;GW-L2;Florian Emsland 23-68-61
+Feuerwehr Holthausen;LF 20;Florian Emsland 23-47-61
+THW OV Lingen;MTW-TZ;Heros Lingen 21/10
+THW OV Lingen;GKW 1;Heros Lingen 22/51
+THW OV Lingen;Anhänger EGS;Heros Lingen 22/Anhänger EGS
+THW OV Lingen;MzKw;Heros Lingen 24/54
+THW OV Lingen;Netzersatzanlage;Heros Lingen 24/Netzersatzanlage
+THW OV Lingen;LKW LBW;Heros Lingen 38/34
+THW OV Lingen;MLW IV;Heros Lingen 38/43
+THW OV Lingen;Anhänger Schmutzwasserpumpe;Heros Lingen 38/Anhänger Schmutzwasserpumpe
+THW OV Lingen;Anhänger;Heros Lingen 38/Anhänger
+THW OV Lingen;MTW OV;Heros Lingen 86/25
+THW OV Lingen;Anhänger Lima 1;Heros Lingen 86/Anhänger Lima 1
+THW OV Lingen;Anhänger Lima 2;Heros Lingen 86/Anhänger Lima 2
+THW OV Lingen;Anhänger 2,8t;Heros Lingen 86/Anhänger 2,8t
+Rettungswache Lingen;NEF;Rotkreuz Emsland 44/82-11
+Rettungswache Lingen;NEF (Reserve);Rotkreuz Emsland 44/82-12
+Rettungswache Lingen;RTW;Rotkreuz Emsland 44/83-11
+Rettungswache Lingen;RTW;Rotkreuz Emsland 44/83-12
+Rettungswache Lingen;RTW;Rotkreuz Emsland 44/83-13
+Rettungswache Lingen;KTW;Rotkreuz Emsland 44/92-11
+Rettungswache Lingen;KTW;Rotkreuz Emsland 44/92-12
+Rettungswache Lingen;NTW;Rotkreuz Emsland 44/93-11
+Polizei Lingen;FuStW;Teuto 10/21
+Polizei Lingen;FuStW;Teuto 10/23
+Polizei Lingen;FuStW;Teuto 10/24
+Polizei Lingen;FuStW;Teuto 10/20
+DLRG Lingen;GW Wasserrettung;Pelikan Emsland 73/58-21
+DLRG Lingen;RTW;Pelikan Emsland 73/83-21
+DLRG Lingen;GW-Taucher;Pelikan Emsland 73/57-21
+DLRG Lingen;MTW;Pelikan Emsland 73/17-21
+DLRG Lingen;Motorrettungsboot Ole;Pelikan Emsland 73/78-21
+DLRG Lingen;Anhänger Sanität;-
+DLRG Lingen;Anhänger Mehrzweck 1;-
+DLRG Lingen;Anhänger Mehrzweck 2;-`;
+const FZ=FZ_TXT.split("\n").map((z,i)=>{const[w,t,f]=z.split(";");return{id:"v"+i,wache:w,typ:t,funk:f==="-"?null:f,reserve:t.includes("Reserve")}});
+const fzName=f=>f.funk||(f.typ+" ("+f.wache+", kein Funkrufname hinterlegt)");
+
+// ===== AAO nur Feuerwehr Lingen. Kürzel: AAO-Typ -> Anzeigename / Fahrzeugtyp im Bestand =====
+const AN={H:"HLF 20",R:"RW/K",D:"DLAK 23/12",T:"TLF 24/50",E:"ELW",L:"GW-L1",O:"TroTLF 16",G:"GW/G",W:"GW/L2",M:"MTF"};
+const AT={H:"HLF 20",R:"RW-K",D:"DL(A)K",T:"TLF 24/50",E:"ELW 1",L:"GW-L1",O:"TroTLF 16",G:"GW-G",W:"GW-L2",M:"MTW"};
+const ALL="HRDTELOGWM";
+const AAO=`F0=H;F1=H;F2=HDT;F3_DACHSTUHL=HDTRE;F3_FLAECHE_GROSS=HTOE;F3_E_ANLAGE=HTOE;F3_FAHRZEUG=HTOE;F3_ZIMMER=HRDTE;F3=HDTE;F3X_SCHIFF=HDTREOGW;F3Y_SCHIFF=HDTREOGW;F3_SCHIFF=HDTREOGW;F3X=HTDEOGW;F3Y_FAHRZEUG=HDTE;F3Y_LUFTFAHRZEUG=HDTE;F3Y_SONST=HDTE;F3Y=HDTEO;F3_BAHN=HTERW;F3Y_BAHN=HTERW;F4X=HTDEOGWM;F4Y=HDTEOWM;F4=HDTEOWM;F5=${ALL};H0=H;H1Y_DL=RD;H1Y=RD;H1X_WASSER=W;H1X=HW;H1_BAHN=H;H1=H;H2Y_HOEHE=HRDE;H2Y_BAHN=HRWDE;H2Y_WASSER=HRDE;H2Y=HRDE;H2X_WASSER=HROEGW;H2X=HROEGW;H2_WASSER=HR;H2_BAHN=HW;H2=HRD;H3X_BAHN=HRDTOGWME;H3X=HRDTOGWME;H3Y=HRDTE;H3=HRDE;MANV 7=HRDTE;MANV_7=HRDTE;MANV 15=${ALL};MANV_15=${ALL};MANV 25=${ALL};MANV_25=${ALL};MANV >25=${ALL};ANFO_HLF=H;ANFO_TLF=T;ANFO_TROTLF=O;ANFO_GWG=GM;ANFO_DL=D;ANFO_RW=R;ANFO_GW-L=L;ANFO_AGT=O;ANFO_GEFAHRGUTGRUPPE=GWOE;ANFO_SONDERLÖSCHMITTEL=OT;ANFO_BOOT=RM;ANFO_IUK=EM;ANFO_ELW=EM;ANFO_NACHB_HILFE=OD`
+ .split(";").map(s=>s.split("="));
+function aaoVorschlag(stw){ // längstes passendes Präfix, wie im Original
+  const r=AAO.slice().sort((a,b)=>b[0].length-a[0].length).find(x=>stw.startsWith(x[0]));
+  let k=r?r[1].split(""):[];
+  if(stw.startsWith("F3")&&!k.includes("L"))k.push("L"); // nur GW-L1, NICHT GW-L FTZ
+  return{regel:r?r[0]:null,kuerzel:k};
+}
+
+// ===== STATUS =====
+const STAT={1:"1 einsatzbereit (Funk)",2:"2 auf Wache",3:"3 Einsatz übernommen",4:"4 an Einsatzstelle",6:"6 nicht einsatzbereit"};
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const $=id=>document.getElementById(id);
+function fehler(t){const e=$("fehler");e.textContent=t;e.classList.remove("hidden")}
+
+// ===== STATE =====
+let db,uid,me=null,plaetze={},status={},einsaetze={},sel=new Set(),pin=null,karte,pinMarker,einsatzLayer,ready=false;
+
+function init(){
+  const c=window.FIREBASE_CONFIG;
+  if(!c||String(c.apiKey).includes("HIER")){fehler("config.js ist noch nicht ausgefüllt. Siehe Anleitung (Firebase-Daten eintragen).");$("verbindung").textContent="Nicht verbunden.";return}
+  firebase.initializeApp(c);db=firebase.database();
+  firebase.auth().signInAnonymously().then(u=>{uid=u.user.uid;ready=true;
+    let c="";try{c=localStorage.getItem("zugang")||""}catch(e){}
+    if(c)pruefeCode(c,true);else zeigeCode();
+  }).catch(e=>{fehler("Anmeldung am Server fehlgeschlagen: "+e.message+" (Ist 'Anonym' in Firebase Authentication aktiviert?)")});
+}
+function zeigeCode(){$("zugang").classList.remove("hidden");$("anmeldung").classList.add("hidden");$("verbindung").textContent="Verbunden ✔ – Code nötig"}
+function pruefeCode(c,still){
+  db.ref("freigabe/"+uid).set(c).then(()=>{try{localStorage.setItem("zugang",c)}catch(e){}
+    $("zugang").classList.add("hidden");$("anmeldung").classList.remove("hidden");$("verbindung").textContent="Verbunden ✔";startListeners()})
+  .catch(()=>{try{localStorage.removeItem("zugang")}catch(e){}
+    if(!still)$("codeFehler").textContent="Falscher Zugangscode.";zeigeCode()});
+}
+let lauscht=false;
+function startListeners(){ if(lauscht)return;lauscht=true;
+  db.ref("plaetze").on("value",s=>{plaetze=s.val()||{};renderWachen();renderOrg()});
+  db.ref("status").on("value",s=>{status=s.val()||{};renderAlles()});
+  db.ref("einsaetze").on("value",s=>{einsaetze=s.val()||{};renderAlles()});
+}
+const belegt=w=>Object.values(plaetze[w]||{}).filter(Boolean).length;
+function renderOrg(){ if(me)return; const s=$("organisation"),alt=s.value;s.innerHTML="";
+  ORG.forEach(([n,m])=>{const o=document.createElement("option");o.value=n;o.textContent=`${n} (${belegt(n)}/${m})`;o.disabled=belegt(n)>=m;s.appendChild(o)});if(alt)s.value=alt}
+function renderWachen(){$("wachenListe").innerHTML=ORG.map(([n,m])=>`<div class="row"><span>${esc(n)}</span><span class="ok">${belegt(n)} / ${m}</span></div>`).join("")}
+
+// ===== DIENST =====
+async function dienstStarten(ev){
+  ev.preventDefault(); if(!ready){alert("Noch nicht mit dem Server verbunden.");return}
+  const name=$("echterName").value.trim(),sp=$("spielername").value.trim(),w=$("organisation").value;
+  if(name.split(/\s+/).length<2){alert("Bitte Vor- und Nachnamen eingeben.");return}
+  const max=ORG.find(o=>o[0]===w)[1]; let slot=null;
+  for(let i=0;i<max&&slot===null;i++){
+    try{const r=await db.ref(`plaetze/${w}/${i}`).transaction(c=>c===null?uid:undefined);
+      if(r.committed){slot=i}}catch(e){}
+  }
+  if(slot===null){alert("Diese Wache ist inzwischen voll.");return}
+  const ref=db.ref(`plaetze/${w}/${slot}`);ref.onDisconnect().remove();
+  me={name,spielername:sp||name,wache:w,slot};
+  db.ref("spieler/"+uid).set({name,spielername:me.spielername,wache:w});db.ref("spieler/"+uid).onDisconnect().remove();
+  $("anmeldung").classList.add("hidden");$("dienst").classList.remove("hidden");$("kartePanel").classList.remove("hidden");
+  $("spielerInfo").textContent=`${me.spielername} (${name}) – ${w}`;
+  if(w===LS){$("leitstelle").classList.remove("hidden");initLeitstelle()}
+  else{$("wache").classList.remove("hidden");$("wacheTitel").textContent=w}
+  initKarte();renderAlles();
+}
+async function dienstBeenden(){
+  if(!me)return;await db.ref(`plaetze/${me.wache}/${me.slot}`).remove();await db.ref("spieler/"+uid).remove();
+  me=null;["dienst","leitstelle","wache","kartePanel"].forEach(i=>$(i).classList.add("hidden"));$("anmeldung").classList.remove("hidden");renderOrg();
+}
+
+// ===== KARTE =====
+const geoCache=JSON.parse(localStorage.getItem("geo")||"{}");
+function initKarte(){
+  if(!karte){karte=L.map("karte").setView([52.5236,7.3197],12);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap-Mitwirkende"}).addTo(karte);
+    einsatzLayer=L.layerGroup().addTo(karte);
+    karte.on("click",e=>{if(me&&me.wache===LS)setPin(e.latlng.lat,e.latlng.lng,"Punkt aus Karte")});
+    wachenMarker();}
+  setTimeout(()=>karte.invalidateSize(),200);
+}
+async function geocode(q){const r=await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q="+encodeURIComponent(q));const j=await r.json();return j[0]?[+j[0].lat,+j[0].lon]:null}
+async function wachenMarker(){ // Koordinaten werden NICHT erfunden, sondern per OSM-Suche ermittelt und zwischengespeichert
+  for(const [n,a] of Object.entries(ADR)){
+    try{if(!geoCache[n]){const p=await geocode(a);if(p){geoCache[n]=p;localStorage.setItem("geo",JSON.stringify(geoCache))}await new Promise(r=>setTimeout(r,1100))}
+      if(geoCache[n])L.circleMarker(geoCache[n],{radius:6,color:"#1565c0"}).addTo(karte).bindPopup(`<b>${esc(n)}</b><br>${esc(a)}<br><i>OSM-Suche, nicht verifiziert</i>`)}catch(e){}
+  }
+}
+function setPin(lat,lng,txt){pin={lat,lng,text:txt};if(pinMarker)pinMarker.setLatLng([lat,lng]);else pinMarker=L.marker([lat,lng]).addTo(karte);
+  $("ortInfo").textContent=`Einsatzort gesetzt: ${lat.toFixed(5)}, ${lng.toFixed(5)}`}
+function zeichneEinsaetze(){if(!einsatzLayer)return;einsatzLayer.clearLayers();
+  Object.values(einsaetze).filter(e=>e.status==="offen"&&e.ort).forEach(e=>L.marker([e.ort.lat,e.ort.lng],{icon:L.divIcon({html:"🔥",className:"",iconSize:[24,24]})}).addTo(einsatzLayer).bindPopup(`<b>${esc(e.stichwort)}</b><br>${esc(e.ort.text||"")}`))}
+
+// ===== LEITSTELLE =====
+let lsInit=false;
+function initLeitstelle(){
+  if(lsInit)return;lsInit=true;
+  $("einsatzWache").innerHTML=OF.map(w=>`<option>${esc(w)}</option>`).join("");
+  $("ortSuchen").onclick=async()=>{const q=$("ortText").value.trim();if(!q)return;
+    try{const p=await geocode(q+" Lingen");if(!p){alert("Nichts gefunden – bitte in die Karte klicken.");return}setPin(p[0],p[1],q);karte.setView(p,15)}catch(e){alert("Adresssuche fehlgeschlagen.")}};
+  $("aaoBtn").onclick=()=>{
+    const stw=$("stichwort").value.trim().toUpperCase(),w=$("einsatzWache").value;
+    if(!stw){$("aaoHinweis").textContent="Bitte zuerst ein Stichwort eingeben.";return}
+    if(w!=="Feuerwehr Lingen"){$("aaoHinweis").textContent="Für diese Ortsfeuerwehr gibt es keine AAO – bitte Fahrzeuge selbst auswählen.";return}
+    const v=aaoVorschlag(stw);sel.clear();const nach=[];
+    if(!v.regel){$("aaoHinweis").textContent="Kein AAO-Eintrag für dieses Stichwort – bitte manuell wählen.";renderFz();return}
+    v.kuerzel.forEach(k=>{const kand=FZ.filter(f=>f.typ===AT[k]);const l=kand.filter(f=>f.wache==="Feuerwehr Lingen");
+      if(l.length)l.forEach(f=>sel.add(f.id));else nach.push(`${AN[k]} (im Bestand nur: ${kand.map(f=>f.funk||f.typ).join(", ")||"nichts"})`)});
+    $("aaoHinweis").textContent=`Regel „${v.regel}“ angewendet.`+(nach.length?` Nicht in Lingen vorhanden, bitte selbst entscheiden: ${nach.join("; ")}.`:"");
+    renderFz()};
+  $("alarmBtn").onclick=alarmieren;
+}
+function renderFz(){
+  const out=[];let cur="";
+  FZ.forEach(f=>{if(f.wache!==cur){cur=f.wache;out.push(`<b>${esc(cur)}</b>`)}
+    const s=status[f.id]??2;
+    out.push(`<label class="fz"><input type="checkbox" data-id="${f.id}" ${sel.has(f.id)?"checked":""}> ${esc(fzName(f))} – <small>${esc(f.typ)}${f.reserve?" (Reserve)":""}, Status ${s}</small></label>`)});
+  const el=$("fzAuswahl");el.innerHTML=out.join("");
+  el.querySelectorAll("input").forEach(i=>i.onchange=()=>i.checked?sel.add(i.dataset.id):sel.delete(i.dataset.id));
+}
+function alarmieren(){
+  const stw=$("stichwort").value.trim().toUpperCase();
+  if(!stw||!pin||!sel.size){alert("Bitte Stichwort, Einsatzort (Karte) und mindestens ein Fahrzeug wählen.");return}
+  const ids=[...sel],nicht=ids.filter(i=>![1,2].includes(status[i]??2));
+  if(nicht.length&&!confirm("Achtung, nicht verfügbare Fahrzeuge gewählt:\n"+nicht.map(i=>fzName(FZ.find(f=>f.id===i))).join("\n")+"\nTrotzdem alarmieren?"))return;
+  const doppelt=ids.filter(i=>Object.values(einsaetze).some(e=>e.status==="offen"&&(e.fahrzeuge||[]).includes(i)));
+  if(doppelt.length&&!confirm("Schon in einem offenen Einsatz:\n"+doppelt.map(i=>fzName(FZ.find(f=>f.id===i))).join("\n")+"\nTrotzdem alarmieren?"))return;
+  const id=db.ref("einsaetze").push().key;
+  db.ref("einsaetze/"+id).set({stichwort:stw,wache:$("einsatzWache").value,ort:pin,fahrzeuge:ids,status:"offen",ts:Date.now()})
+    .then(()=>{sel.clear();$("stichwort").value="";renderFz()}).catch(e=>alert("Fehler: "+e.message+" (Nur die Leitstelle darf Einsätze anlegen.)"));
+}
+function renderLst(){
+  const arr=Object.entries(einsaetze).sort((a,b)=>b[1].ts-a[1].ts);
+  $("lstEinsaetze").innerHTML=arr.map(([id,e])=>`<div class="einsatz"><b>${esc(e.stichwort)}</b> – ${esc(e.ort?.text||"")} – ${esc(e.wache)} – <span class="${e.status==="offen"?"err":"ok"}">${esc(e.status)}</span>
+   <div class="hinweis">${(e.fahrzeuge||[]).map(i=>{const f=FZ.find(x=>x.id===i);return esc(fzName(f))+" (St. "+(status[i]??2)+")"}).join("<br>")}</div>
+   ${Object.values(e.rueck||{}).map(r=>`<div>💬 ${esc(r.von)}: ${esc(r.text)}</div>`).join("")}
+   ${e.status==="offen"?`<button class="sek" data-ab="${id}">Einsatz abschließen</button>`:""}</div>`).join("")||"Noch keine Einsätze.";
+  $("lstEinsaetze").querySelectorAll("[data-ab]").forEach(b=>b.onclick=()=>db.ref(`einsaetze/${b.dataset.ab}/status`).set("abgeschlossen"));
+}
+
+// ===== WACHE =====
+function renderWache(){
+  const eig=FZ.filter(f=>f.wache===me.wache);
+  $("eigeneFz").innerHTML=eig.map(f=>{const s=status[f.id]??2;return `<div class="einsatz"><b>${esc(fzName(f))}</b> <small>${esc(f.typ)}</small><br>`+
+    Object.entries(STAT).map(([k,t])=>`<button class="sb ${s==k?"aktiv":"sek"}" data-v="${f.id}" data-s="${k}">${esc(t)}</button>`).join("")+`</div>`}).join("");
+  $("eigeneFz").querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>db.ref("status/"+b.dataset.v).set(+b.dataset.s));
+  const ids=new Set(eig.map(f=>f.id));
+  const mine=Object.entries(einsaetze).filter(([_,e])=>e.status==="offen"&&(e.fahrzeuge||[]).some(i=>ids.has(i)));
+  $("eigeneEinsaetze").innerHTML=mine.map(([id,e])=>`<div class="einsatz"><b>🔔 ${esc(e.stichwort)}</b> – ${esc(e.ort?.text||"")}<br>Alarmiert: ${(e.fahrzeuge||[]).filter(i=>ids.has(i)).map(i=>esc(fzName(FZ.find(f=>f.id===i)))).join(", ")}
+   ${Object.values(e.rueck||{}).map(r=>`<div>💬 ${esc(r.von)}: ${esc(r.text)}</div>`).join("")}
+   <input id="r_${id}" placeholder="Rückmeldung an Leitstelle"><button data-r="${id}">Rückmeldung senden</button></div>`).join("")||"Keine aktuellen Alarmierungen.";
+  $("eigeneEinsaetze").querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{const t=$("r_"+b.dataset.r).value.trim();if(t)db.ref(`einsaetze/${b.dataset.r}/rueck`).push({von:me.spielername+" ("+me.wache+")",text:t,ts:Date.now()})});
+}
+function renderAlles(){if(!me)return;zeichneEinsaetze();if(me.wache===LS){
+  const a=document.activeElement;if(!(a&&a.closest&&a.closest("#fzAuswahl")))renderFz();renderLst()}else{const a=document.activeElement;if(!(a&&a.id&&a.id.startsWith("r_")))renderWache()}}
+
+$("codeForm").addEventListener("submit",e=>{e.preventDefault();if(ready)pruefeCode($("codeInput").value.trim(),false)});
+$("form").addEventListener("submit",dienstStarten);$("dienstEnde").addEventListener("click",dienstBeenden);
+if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+init();
+</script></body></html>

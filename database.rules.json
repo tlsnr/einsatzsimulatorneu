@@ -1,15 +1,31 @@
 {
   "rules": {
-    ".read": "auth != null",
-    "plaetze": { "$w": { "$s": {
-      ".write": "auth != null && ((!data.exists() && newData.val() === auth.uid) || (data.val() === auth.uid && !newData.exists()))",
-      ".validate": "$s === '0' || ($s === '1' && $w !== 'Leitstelle Ems-Vechte')"
-    } } },
-    "spieler": { "$u": { ".write": "auth != null && auth.uid === $u" } },
-    "status": { "$v": { ".write": "auth != null", ".validate": "newData.isNumber()" } },
-    "einsaetze": { "$e": {
-      ".write": "auth != null && root.child('plaetze/Leitstelle Ems-Vechte/0').val() === auth.uid",
-      "rueck": { "$r": { ".write": "auth != null" } }
-    } }
+    "geheim": { ".read": false, ".write": false },
+    "freigabe": { "$u": {
+      ".write": "auth != null && auth.uid === $u",
+      ".validate": "newData.isString() && newData.val() === root.child('geheim/code').val()"
+    } },
+    "plaetze": {
+      ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+      "$w": { "$s": {
+        ".write": "auth != null && root.child('freigabe/' + auth.uid).exists() && ((!data.exists() && newData.val() === auth.uid) || (data.val() === auth.uid && !newData.exists()))",
+        ".validate": "$s === '0' || ($s === '1' && $w !== 'Leitstelle Ems-Vechte')"
+      } }
+    },
+    "spieler": {
+      ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+      "$u": { ".write": "auth != null && auth.uid === $u && root.child('freigabe/' + auth.uid).exists()" }
+    },
+    "status": {
+      ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+      "$v": { ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()", ".validate": "newData.isNumber()" }
+    },
+    "einsaetze": {
+      ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+      "$e": {
+        ".write": "auth != null && root.child('plaetze/Leitstelle Ems-Vechte/0').val() === auth.uid",
+        "rueck": { "$r": { ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()" } }
+      }
+    }
   }
 }
