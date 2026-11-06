@@ -14,7 +14,7 @@
       ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
       "$w": {
         "$s": {
-          ".write": "auth != null && root.child('freigabe/' + auth.uid).exists() && ((!data.exists() && newData.val() === auth.uid) || (data.val() === auth.uid && !newData.exists()))",
+          ".write": "auth != null && root.child('freigabe/' + auth.uid).exists() && ((!data.exists() && newData.val() === auth.uid) || (data.val() === auth.uid && !newData.exists()) || (data.exists() && !newData.exists() && (!root.child('spieler/' + data.val()).exists() || !root.child('spieler/' + data.val() + '/ts').exists() || root.child('spieler/' + data.val() + '/ts').val() < now - 40000)))",
           ".validate": "$s === '0' || $s === '1'"
         }
       }
