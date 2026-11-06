@@ -1,32 +1,49 @@
 {
   "rules": {
-    "geheim": { ".read": false, ".write": false },
-    "freigabe": { "$u": {
-      ".write": "auth != null && auth.uid === $u",
-      ".validate": "newData.isString() && newData.val() === root.child('geheim/code').val()"
-    } },
+    "geheim": {
+      ".read": false,
+      ".write": false
+    },
+    "freigabe": {
+      "$u": {
+        ".write": "auth != null && auth.uid === $u",
+        ".validate": "newData.isString() && newData.val() === root.child('geheim/code').val()"
+      }
+    },
     "plaetze": {
       ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
-      "$w": { "$s": {
-        ".write": "auth != null && root.child('freigabe/' + auth.uid).exists() && ((!data.exists() && newData.val() === auth.uid) || (data.val() === auth.uid && !newData.exists()))",
-        ".validate": "$s === '0' || ($s === '1' && $w !== 'Leitstelle Ems-Vechte')"
-      } }
+      "$w": {
+        "$s": {
+          ".write": "auth != null && root.child('freigabe/' + auth.uid).exists() && ((!data.exists() && newData.val() === auth.uid) || (data.val() === auth.uid && !newData.exists()))",
+          ".validate": "$s === '0' || $s === '1'"
+        }
+      }
     },
     "spieler": {
       ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
-      "$u": { ".write": "auth != null && auth.uid === $u && root.child('freigabe/' + auth.uid).exists()" }
+      "$u": {
+        ".write": "auth != null && auth.uid === $u && root.child('freigabe/' + auth.uid).exists()"
+      }
     },
     "status": {
       ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
-      "$v": { ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()", ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 8" }
+      "$v": {
+        ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+        ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 8"
+      }
     },
     "vorher": {
       ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
-      "$v": { ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()", ".validate": "newData.isNumber()" }
+      "$v": {
+        ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+        ".validate": "newData.isNumber()"
+      }
     },
     "sprech": {
       ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
-      "$v": { ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()" }
+      "$v": {
+        ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()"
+      }
     },
     "funk": {
       ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
@@ -38,10 +55,18 @@
     "einsaetze": {
       ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
       "$e": {
-        ".write": "auth != null && root.child('plaetze/Leitstelle Ems-Vechte/0').val() === auth.uid",
-        "quit": { ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()" },
-        "aus": { ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()" },
-        "rueck": { "$r": { ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()" } }
+        ".write": "auth != null && (root.child('plaetze/Leitstelle Ems-Vechte/0').val() === auth.uid || root.child('plaetze/Leitstelle Ems-Vechte/1').val() === auth.uid)",
+        "quit": {
+          ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()"
+        },
+        "aus": {
+          ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()"
+        },
+        "rueck": {
+          "$r": {
+            ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()"
+          }
+        }
       }
     }
   }
