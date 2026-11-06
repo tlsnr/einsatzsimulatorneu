@@ -1,73 +1,97 @@
 {
-  "rules": {
-    "geheim": {
-      ".read": false,
-      ".write": false
-    },
-    "freigabe": {
-      "$u": {
-        ".write": "auth != null && auth.uid === $u",
-        ".validate": "newData.isString() && newData.val() === root.child('geheim/code').val()"
-      }
-    },
-    "plaetze": {
-      ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
-      "$w": {
-        "$s": {
-          ".write": "auth != null && root.child('freigabe/' + auth.uid).exists() && ((!data.exists() && newData.val() === auth.uid) || (data.val() === auth.uid && !newData.exists()) || (data.exists() && !newData.exists() && (!root.child('spieler/' + data.val()).exists() || !root.child('spieler/' + data.val() + '/ts').exists() || root.child('spieler/' + data.val() + '/ts').val() < now - 40000)))",
-          ".validate": "$s === '0' || $s === '1'"
-        }
-      }
-    },
-    "spieler": {
-      ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
-      "$u": {
-        ".write": "auth != null && auth.uid === $u && root.child('freigabe/' + auth.uid).exists()"
-      }
-    },
-    "status": {
-      ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
-      "$v": {
-        ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()",
-        ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 8"
-      }
-    },
-    "vorher": {
-      ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
-      "$v": {
-        ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()",
-        ".validate": "newData.isNumber()"
-      }
-    },
-    "sprech": {
-      ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
-      "$v": {
-        ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()"
-      }
-    },
-    "funk": {
-      ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
-      "$m": {
-        ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()",
-        ".validate": "newData.hasChildren(['fz', 'text', 'ts', 'rolle'])"
-      }
-    },
-    "einsaetze": {
-      ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
-      "$e": {
-        ".write": "auth != null && (root.child('plaetze/Leitstelle Ems-Vechte/0').val() === auth.uid || root.child('plaetze/Leitstelle Ems-Vechte/1').val() === auth.uid)",
-        "quit": {
-          ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()"
-        },
-        "aus": {
-          ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()"
-        },
-        "rueck": {
-          "$r": {
-            ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()"
-          }
-        }
-      }
+ "rules": {
+  "geheim": {
+   ".read": false,
+   ".write": false
+  },
+  "freigabe": {
+   "$u": {
+    ".write": "auth != null && auth.uid === $u",
+    ".validate": "newData.isString() && newData.val() === root.child('geheim/code').val()"
+   }
+  },
+  "plaetze": {
+   ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+   "$w": {
+    "$s": {
+     ".write": "auth != null && root.child('freigabe/' + auth.uid).exists() && ((!data.exists() && newData.val() === auth.uid) || (data.val() === auth.uid && !newData.exists()) || (data.exists() && !newData.exists() && (!root.child('spieler/' + data.val()).exists() || !root.child('spieler/' + data.val() + '/ts').exists() || root.child('spieler/' + data.val() + '/ts').val() < now - 40000)))",
+     ".validate": "$s === '0' || $s === '1'"
     }
+   }
+  },
+  "spieler": {
+   ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+   "$u": {
+    ".write": "auth != null && auth.uid === $u && root.child('freigabe/' + auth.uid).exists()"
+   }
+  },
+  "status": {
+   ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+   "$v": {
+    ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+    ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 8"
+   }
+  },
+  "vorher": {
+   ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+   "$v": {
+    ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+    ".validate": "newData.isNumber()"
+   }
+  },
+  "sprech": {
+   ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+   "$v": {
+    ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()"
+   }
+  },
+  "funk": {
+   ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+   "$m": {
+    ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+    ".validate": "newData.hasChildren(['fz', 'text', 'ts', 'rolle'])"
+   }
+  },
+  "einsaetze": {
+   ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+   "$e": {
+    ".write": "auth != null && (root.child('plaetze/Leitstelle Ems-Vechte/0').val() === auth.uid || root.child('plaetze/Leitstelle Ems-Vechte/1').val() === auth.uid) || (auth != null && root.child('freigabe/' + auth.uid).exists() && root.child('sim/host/uid').val() === auth.uid)",
+    "quit": {
+     ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()"
+    },
+    "aus": {
+     ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()"
+    },
+    "rueck": {
+     "$r": {
+      ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()"
+     }
+    },
+    "patienten": {
+     ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()"
+    }
+   }
+  },
+  "sim": {
+   ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+   "host": {
+    ".write": "auth != null && root.child('freigabe/' + auth.uid).exists() && (!data.exists() || data.child('uid').val() === auth.uid || data.child('ts').val() < now - 12000) || (auth != null && newData.exists() === false && data.child('uid').val() === auth.uid)"
+   },
+   "gen": {
+    ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()"
+   }
+  },
+  "bew": {
+   ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+   "$v": {
+    ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()"
+   }
+  },
+  "verlauf": {
+   ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+   "$e": {
+    ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()"
+   }
   }
+ }
 }
