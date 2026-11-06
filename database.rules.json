@@ -18,12 +18,29 @@
     },
     "status": {
       ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+      "$v": { ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()", ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 8" }
+    },
+    "vorher": {
+      ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
       "$v": { ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()", ".validate": "newData.isNumber()" }
+    },
+    "sprech": {
+      ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+      "$v": { ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()" }
+    },
+    "funk": {
+      ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+      "$m": {
+        ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()",
+        ".validate": "newData.hasChildren(['fz', 'text', 'ts', 'rolle'])"
+      }
     },
     "einsaetze": {
       ".read": "auth != null && root.child('freigabe/' + auth.uid).exists()",
       "$e": {
         ".write": "auth != null && root.child('plaetze/Leitstelle Ems-Vechte/0').val() === auth.uid",
+        "quit": { ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()" },
+        "aus": { ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()" },
         "rueck": { "$r": { ".write": "auth != null && root.child('freigabe/' + auth.uid).exists()" } }
       }
     }
